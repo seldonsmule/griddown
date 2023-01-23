@@ -43,7 +43,6 @@ type Configuration struct {
 
 
 const COMPILE_IN_KEY = "example key 9999"
-const COMPILE_IN_KEY_TEST = "example key 9999"
 
 const CERTFILE string = "powerwall.cer"
 
@@ -258,11 +257,6 @@ func gridup(pw *powerwall.Powerwall) (error, bool){
 }
 
 func main() {
-
-  if(COMPILE_IN_KEY == COMPILE_IN_KEY_TEST){
-    panic("While it is cheezy encryption - you need to chnage the COMPILE_IN_KEY and recompile")
-  }
-
 
   cmdPtr := flag.String("cmd", "help", "Command to run")
   rundirPtr := flag.String("rundir", "./", "Path config file and write log to")
