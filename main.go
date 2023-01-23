@@ -194,6 +194,7 @@ func gridstatus(pw *powerwall.Powerwall, st *smartthings.SmartThings) error{
 
   if(status){
     fmt.Println("Grid is working")
+    logmsg.Print(logmsg.Info, "Grid is working")
 
     // 1st see if we have already done something about this
 
@@ -209,6 +210,7 @@ func gridstatus(pw *powerwall.Powerwall, st *smartthings.SmartThings) error{
 
   }else{
     fmt.Println("Yikes - power is down")
+    logmsg.Print(logmsg.Info, "Yikes - power is down")
 
     if(!testLockfile()){ // if false - grid used to be up
 
@@ -273,7 +275,16 @@ func main() {
 
   flag.Parse()
 
-fmt.Printf("cmd=%s rundir=%s\n", *cmdPtr, *rundirPtr)
+  fmt.Printf("cmd=%s rundir=%s\n", *cmdPtr, *rundirPtr)
+
+  cderr := os.Chdir(*rundirPtr)
+
+  if(cderr != nil){
+    msg := fmt.Sprintf("Error with chdir: %s", cderr)
+    logmsg.Print(logmsg.Error,msg)
+    fmt.Println(msg)
+    os.Exit(2)
+  }
 
   logmsg.SetLogFile("griddown.log");
 
@@ -293,14 +304,6 @@ fmt.Printf("cmd=%s rundir=%s\n", *cmdPtr, *rundirPtr)
     os.Exit(1)
   }
 
-  cderr := os.Chdir(*rundirPtr)
-
-  if(cderr != nil){
-    msg := fmt.Sprintf("Error with chdir: %s", cderr)
-    logmsg.Print(logmsg.Error,msg)
-    fmt.Println(msg)
-    os.Exit(2)
-  }
 
   readconf(*confPtr, false)
 
