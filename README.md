@@ -21,3 +21,12 @@ This program talks to a Telsa Powerwall and determines if the power grid is work
 - A pre-created scene to take action when power is restored
 -- Example: GridUp -> Turn on water heater
 
+# Example setup
+```
+cd $HOME/tmp
+
+griddown -cmd setconf -sttoken "2343242323bb23b3-23bb3" -stdownscene GridDown -stupscene GridUp -pwuserid "youremail@powerwall.org" -pwpasswd "abc123
+
+griddown -cmd gridstatus -rundir $HOME/tmp
+
+```
