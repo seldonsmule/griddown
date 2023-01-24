@@ -3,6 +3,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"fmt"
 	"flag"
 	"strings"
@@ -47,13 +48,14 @@ const COMPILE_IN_KEY = "example key 9999"
 const CERTFILE string = "powerwall.cer"
 
 var gMyConf Configuration
+var gsKey string = "notset"
 
 
 func help(){
 
   fmt.Println("Test if grid is down and execute smartthing scene")
 
-  fmt.Println("Usage griddown -cmd [a command, see below] [-rundir runpath]")
+  fmt.Println("Usage griddown -cmd [a command, see below] [-rundir runpath] [-key encryptkey for config file]")
   fmt.Println()
   flag.PrintDefaults()
   fmt.Println()
@@ -66,6 +68,7 @@ func help(){
   fmt.Println("             -pwpasswd Powerwall password")
   fmt.Println("             -conffile name of conffile (.griddown.conf default)")
   fmt.Println("       readconf - Display conf info")
+  fmt.Println("       convertkey - Convert config file from passed in key to internally complied/generated key")
   fmt.Println("       gridstatus - Test if Power Grid is up or down")
   fmt.Println("       runscene - Runs a SmartThings Scene")
   fmt.Println("             -name Name of a predefined SmartThings scene")
@@ -81,9 +84,24 @@ func help(){
 
 }
 
+func saveconf() bool {
+
+  simple := simpleconffile.New(getencryptkey(), gMyConf.ConfFilename)
+
+  if(gMyConf.Encrypted){
+    gMyConf.ST_Token = simple.EncryptString(gMyConf.ST_Token)
+    gMyConf.PW_Userid = simple.EncryptString(gMyConf.PW_Userid)
+    gMyConf.PW_Passwd = simple.EncryptString(gMyConf.PW_Passwd)
+  }
+
+  simple.SaveConf(gMyConf)
+
+  return true
+}
+
 func readconf(confFile string, printstd bool) bool{
 
-  simple := simpleconffile.New(COMPILE_IN_KEY, confFile)
+  simple := simpleconffile.New(getencryptkey(), confFile)
 
   if(!simple.ReadConf(&gMyConf)){
     msg := fmt.Sprintln("Error reading conf file: ", confFile)
@@ -258,10 +276,83 @@ func gridup(pw *powerwall.Powerwall) (error, bool){
   return nil, false
 }
 
+// cheezy - but works - we need a 16 character string
+// WARNING - this is for MacOs - you will need (if you want to use this)
+//           to  update for your OS logic
+//
+func getencryptkey() string{
+
+  var serialNumber string
+  size := 16
+  var key string
+
+  if(gsKey != "notset"){ // someone passed it in
+    key = gsKey
+  }else{
+
+    out, _ := exec.Command("/usr/sbin/ioreg", "-l").Output() // err ignored for brevity
+
+    for _, l := range strings.Split(string(out), "\n") {
+      if strings.Contains(l, "IOPlatformSerialNumber") {
+        s := strings.Split(l, " ")
+        serialNumber = s[len(s)-1]
+        break
+      }
+    }
+
+    for _, e := range strings.Split(string(serialNumber), "\"") {
+
+      if(len(e) > 0){
+        serialNumber = e
+        break
+      }
+  
+    }
+
+    //serialNumber = serialNumber + "AAAA"
+
+    length := len(serialNumber)
+
+    //fmt.Printf("serial is [%s] with length[%d]\n", serialNumber, length)
+
+
+    if(length == size){
+      key = serialNumber
+    }else if(length < size){
+
+      padlen := size-length
+
+      pad := "9"
+
+      for i := 1; i < padlen; i++ {
+
+        pad = pad + "9"
+
+      }
+
+      key = serialNumber + pad
+
+    }else{
+     // fmt.Printf("crap greater than [%d]\n" ,size)
+
+      key = serialNumber[: + size]
+    }
+
+  }
+
+  //fmt.Println(key)
+
+  //return(COMPILE_IN_KEY)
+ 
+  return(key)
+}
+
+
 func main() {
 
   cmdPtr := flag.String("cmd", "help", "Command to run")
   rundirPtr := flag.String("rundir", "./", "Path config file and write log to")
+  keyPtr := flag.String("key", "notset", "Pass-in instead of use a complied in encrypt key for the config file")
   sttokenPtr := flag.String("sttoken", "notset", "SmartThings access Token")
   stdownscenePtr := flag.String("stdownscene", "notset", "SmartThings Scene for when grid is down]")
   stupscenePtr := flag.String("stupscene", "notset", "SmartThings Scene for when grid is up]")
@@ -279,6 +370,8 @@ func main() {
 
   cderr := os.Chdir(*rundirPtr)
 
+  gsKey = *keyPtr
+
   if(cderr != nil){
     msg := fmt.Sprintf("Error with chdir: %s", cderr)
     logmsg.Print(logmsg.Error,msg)
@@ -289,6 +382,8 @@ func main() {
   logmsg.SetLogFile("griddown.log");
 
   logmsg.Print(logmsg.Info, "cmdPtr = ", *cmdPtr)
+  logmsg.Print(logmsg.Info, "rundirPtr = ", *rundirPtr)
+  logmsg.Print(logmsg.Info, "keyPtr = ", *keyPtr)
   logmsg.Print(logmsg.Info, "confPtr = ", *confPtr)
   logmsg.Print(logmsg.Info, "sttokenPtr = ", *sttokenPtr)
   logmsg.Print(logmsg.Info, "stdownscenePtr = ", *stdownscenePtr)
@@ -340,32 +435,45 @@ func main() {
       fmt.Println("Reading conf file")
       readconf(*confPtr, true)
 
+    case "convertkey":
+
+      if(gsKey == "notset"){
+        fmt.Println("You must pass in the old encrypt key (-key) to convert")
+        os.Exit(1)
+      }
+
+      // reading with passed in key
+      readconf(*confPtr, true)
+
+
+      gsKey = "notset"
+
+      saveconf()
+
     case "setconf":
 
       readconf(*confPtr, false) // ignore errors
 
       fmt.Println("Setting conf file")
 
-      simple := simpleconffile.New(COMPILE_IN_KEY, *confPtr)
-
       gMyConf.Encrypted = true
 
       if(strings.Compare(*sttokenPtr, "notset") != 0){
-        gMyConf.ST_Token = simple.EncryptString(*sttokenPtr)
+        gMyConf.ST_Token = *sttokenPtr
       }else{
-        gMyConf.ST_Token = simple.EncryptString(gMyConf.ST_Token)
+        gMyConf.ST_Token = gMyConf.ST_Token
       }
 
       if(strings.Compare(*pwuserPtr, "notset") != 0){
-        gMyConf.PW_Userid = simple.EncryptString(*pwuserPtr)
+        gMyConf.PW_Userid = *pwuserPtr
       }else{
-        gMyConf.PW_Userid = simple.EncryptString(gMyConf.PW_Userid)
+        gMyConf.PW_Userid = gMyConf.PW_Userid
       }
 
       if(strings.Compare(*pwpasswdPtr, "notset") != 0){
-        gMyConf.PW_Passwd = simple.EncryptString(*pwpasswdPtr)
+        gMyConf.PW_Passwd = *pwpasswdPtr
       }else{
-        gMyConf.PW_Passwd = simple.EncryptString(gMyConf.PW_Passwd)
+        gMyConf.PW_Passwd = gMyConf.PW_Passwd
       }
 
 
@@ -392,7 +500,7 @@ func main() {
         }
       }
 
-      simple.SaveConf(gMyConf)
+      saveconf()
 
       readconf(*confPtr, true) // ignore errors
 
