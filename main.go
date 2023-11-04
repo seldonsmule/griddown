@@ -32,6 +32,8 @@ type Configuration struct {
   ST_DownScene string
   ST_UpScene string
 
+  DownScript string
+
 
 /*
   // non users input
@@ -66,10 +68,12 @@ func help(){
   fmt.Println("             -stupcene SmartThings Scene to call with grid is up")
   fmt.Println("             -pwuserid Powerwall user id")
   fmt.Println("             -pwpasswd Powerwall password")
+  fmt.Println("             -downscript scriptname to run when grid is down")
   fmt.Println("             -conffile name of conffile (.griddown.conf default)")
   fmt.Println("       readconf - Display conf info")
   fmt.Println("       convertkey - Convert config file from passed in key to internally complied/generated key")
   fmt.Println("       gridstatus - Test if Power Grid is up or down")
+  fmt.Println("       rundownscript - Run a script when grid is down")
   fmt.Println("       runscene - Runs a SmartThings Scene")
   fmt.Println("             -name Name of a predefined SmartThings scene")
   fmt.Println("       listscenes - List all the SmartThings Scense that are avaialble")
@@ -82,6 +86,24 @@ func help(){
   fmt.Println()
 
 
+}
+
+func rundownscript() bool{
+
+  fmt.Println("Running down script: ", gMyConf.DownScript)
+
+  cmd := exec.Command(gMyConf.DownScript)
+
+  fmt.Println(cmd)
+
+  err := cmd.Run()
+
+  if(err != nil){
+    fmt.Println("Error running down script: ", err)
+    return false
+  }
+
+  return true
 }
 
 func saveconf() bool {
@@ -123,6 +145,7 @@ func readconf(confFile string, printstd bool) bool{
     fmt.Printf("ST_DownScene [%v]\n", gMyConf.ST_DownScene)
     fmt.Printf("ST_UpScene [%v]\n", gMyConf.ST_UpScene)
     fmt.Printf("ConfFilename [%v]\n", gMyConf.ConfFilename)
+    fmt.Printf("DownScript [%v]\n", gMyConf.DownScript)
     fmt.Printf("PW_Userid [%v]\n", gMyConf.PW_Userid)
     fmt.Printf("PW_Passwd [%v]\n", gMyConf.PW_Passwd)
 
@@ -234,6 +257,8 @@ func gridstatus(pw *powerwall.Powerwall, st *smartthings.SmartThings) error{
 
       fmt.Printf("Running SmartThings GridDown Scene: %s\n", gMyConf.ST_DownScene)
       st.RunScene(gMyConf.ST_DownScene)
+
+      rundownscript()
       
       createLockfile()
 
@@ -362,6 +387,8 @@ func main() {
 
   pwuserPtr := flag.String("pwuser", "notset", "Powerwall Userid")
   pwpasswdPtr := flag.String("pwpasswd", "notset", "Powerwall Password")
+  downscriptPtr := flag.String("downscript", "notset", "Script to run when grid goes down")
+
 
 
   flag.Parse()
@@ -392,6 +419,7 @@ func main() {
   logmsg.Print(logmsg.Info, "pwuserPtr = ", *pwuserPtr)
   logmsg.Print(logmsg.Info, "pwpasswdPtr = ", *pwpasswdPtr)
   logmsg.Print(logmsg.Info, "bdebugPtr = ", *bdebugPtr)
+  logmsg.Print(logmsg.Info, "downscriptPtr = ", *downscriptPtr)
   logmsg.Print(logmsg.Info, "tail = ", flag.Args())
 
   if(*cmdPtr == "help"){
@@ -411,6 +439,14 @@ func main() {
   //st.Dump()
 
   switch *cmdPtr {
+
+    case "rundownscript":
+      if(rundownscript() == false){
+	fmt.Println("Error running script")
+	fmt.Println("%s", gMyConf.DownScript)
+	os.Exit(1)
+      }
+
 
     case "gridstatus":
 
@@ -462,6 +498,12 @@ func main() {
         gMyConf.ST_Token = *sttokenPtr
       }else{
         gMyConf.ST_Token = gMyConf.ST_Token
+      }
+
+      if(strings.Compare(*downscriptPtr, "notset") != 0){
+        gMyConf.DownScript = *downscriptPtr
+      }else{
+        gMyConf.DownScript = gMyConf.DownScript
       }
 
       if(strings.Compare(*pwuserPtr, "notset") != 0){
