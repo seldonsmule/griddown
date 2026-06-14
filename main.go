@@ -90,6 +90,10 @@ func help(){
 
 func rundownscript() bool{
 
+  fmt.Println("06-13-2026 - Updated to remove calling the tesla down script that would stop it from charging at 1505")
+
+  return true
+
   fmt.Println("Running down script: ", gMyConf.DownScript)
 
   cmd := exec.Command(gMyConf.DownScript)
@@ -157,7 +161,13 @@ func readconf(confFile string, printstd bool) bool{
 
 func testLockfile() bool {
 
-  lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  // 06-14-2026 - changed creating the lockfile without a pathname.  
+  //              the program already moves to a run directory that is good
+  //              for writing.  
+  //              When run as root, $HOME is a not a real directory and things
+  //              fail
+  //lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  lockfile := "griddown.lck"
 
   _, statErr := os.Stat(lockfile)
 
@@ -171,7 +181,13 @@ func testLockfile() bool {
 
 func deleteLockfile(){
 
-  lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  // 06-14-2026 - changed creating the lockfile without a pathname.  
+  //              the program already moves to a run directory that is good
+  //              for writing.  
+  //              When run as root, $HOME is a not a real directory and things
+  //              fail
+  //lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  lockfile := "griddown.lck"
 
   _, statErr := os.Stat(lockfile)
 
@@ -191,7 +207,13 @@ func deleteLockfile(){
 
 func createLockfile(){
 
-  lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  // 06-14-2026 - changed creating the lockfile without a pathname.  
+  //              the program already moves to a run directory that is good
+  //              for writing.  
+  //              When run as root, $HOME is a not a real directory and things
+  //              fail
+  //lockfile := fmt.Sprintf("%s/tmp/griddown.lck", os.Getenv("HOME"))
+  lockfile := "griddown.lck"
 
   info, statErr := os.Stat(lockfile)
 
@@ -225,6 +247,8 @@ func createLockfile(){
 
 
 func gridstatus(pw *powerwall.Powerwall, st *smartthings.SmartThings) error{
+
+  fmt.Println("06-13-2026 - Updated griddown program")
 
   err, status := gridup(pw)
 
